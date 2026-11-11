@@ -13,8 +13,14 @@ app.use(express.static("public"));
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// Open the pairing web page at the Railway root URL.
+// Monitoring services can use /health instead of showing JSON to visitors.
 app.get("/", (req, res) => {
+    res.sendFile(join(process.cwd(), "public", "pair.html"));
+});
+
+// Health check endpoint for Railway and monitoring services.
+app.get("/health", (req, res) => {
     res.json({ status: "OK", service: "MARCO MALIK & WAQAR WRITES MD" });
 });
 
