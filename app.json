@@ -1,0 +1,38 @@
+{
+    "name": "MARCO MALIK & WAQAR WRITES MD BOT",
+    "description": "🤖 Feature-rich WhatsApp Bot — Media downloads, AI chat, group management, games, and more. Deploy in minutes!",
+    "keywords": [
+        "whatsapp",
+        "bot",
+        "node",
+        "baileys",
+        "automation"
+    ],
+    "logo": "https://marco-waqar-mini-bot-info-web.vercel.app/logo.png",
+    "repository": "https://marco-waqar-mini-bot-info-web.vercel.app",
+    "success_url": "/",
+    "stack": "heroku-24",
+    "env": {
+        "SESSION_ID": {
+            "description": "Unique Session ID from the pairing page (starts with MARCOWAQAR-...)",
+            "required": true
+        }
+    },
+    "formation": {
+        "worker": {
+            "quantity": 1,
+            "size": "basic"
+        }
+    },
+    "buildpacks": [
+        {
+            "url": "heroku/python"
+        },
+        {
+            "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git"
+        },
+        {
+            "url": "heroku/nodejs"
+        }
+    ]
+}

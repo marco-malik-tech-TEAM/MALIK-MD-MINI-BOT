@@ -1,0 +1,14 @@
+{
+    "ignore": [
+        "auth_info/**",
+        "sessions/**",
+        "temp/**",
+        "config.json",
+        ".git",
+        "node_modules"
+    ],
+    "watch": [
+        "."
+    ],
+    "ext": "js"
+}
