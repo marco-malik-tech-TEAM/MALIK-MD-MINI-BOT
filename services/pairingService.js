@@ -52,7 +52,8 @@ export const startPairing = async (phoneNumber, method = "qr", socketId, hooks =
             const sock = makeWASocket({
                 logger: pino({ level: "silent" }),
                 auth: state,
-                browser: Browsers.ubuntu("Chrome"),
+                version: [2, 3000, 1033893291],
+                browser: ["MALIK-MD-MINI-BOT", "Chrome", "145.0.0"],
                 printQRInTerminal: false,
                 markOnlineOnConnect: false,
                 generateHighQualityLinkPreview: false,
@@ -65,47 +66,25 @@ export const startPairing = async (phoneNumber, method = "qr", socketId, hooks =
             // Store session ref
             activePairingSessions.set(sessionId, { sock, socketId, phone: normalizedPhone });
 
-            // Handle Pairing Code
-            if (method === "code" && phoneNumber) {
-                (async () => {
-                    try {
-                        console.log(`[${sessionId}] Initiating pairing code request chain...`);
-                        let attempts = 0;
-                        const maxAttempts = 5;
-                        let success = false;
-
-                        while (attempts < maxAttempts && !success) {
-                            attempts++;
-                            try {
-                                const waitTime = attempts === 1 ? 6000 : 3000;
-                                await delay(waitTime);
-
-                                // Auth state is returned by useMultiFileAuthState; it is not exposed as sock.authState.
-                                if (!state.creds.me && !state.creds.registered) {
-                                    console.log(`[${sessionId}] Requesting pairing code (Attempt ${attempts})...`);
-                                    const code = await sock.requestPairingCode(normalizedPhone);
-                                    console.log(`[${sessionId}] ✅ Pairing Code Generated: ${code}`);
-                                    notify("pairing_code", { code, sessionId });
-                                    success = true;
-                                } else {
-                                    success = true;
-                                }
-                            } catch (e) {
-                                const isTransient = e.message?.includes("Connection Closed") || e.output?.statusCode === 428;
-                                console.warn(`[${sessionId}] Pairing code attempt ${attempts} failed: ${e.message}`);
-                                if (attempts >= maxAttempts || !isTransient) throw e;
-                                await delay(4000);
-                            }
-                        }
-                    } catch (error) {
-                        console.error(`[${sessionId}] ❌ Permanent failure generating pairing code:`, error);
-                        notify("pairing_error", {
-                            error: "Neural Link Failed: Connection was closed by WhatsApp. Please ensure your number is correct and try again.",
-                            sessionId
-                        });
-                    }
-                })();
-            }
+            let pairingCodeRequested = false;
+            const requestPairingCode = async () => {
+                if (pairingCodeRequested || method !== "code" || !normalizedPhone || state.creds.registered) return;
+                pairingCodeRequested = true;
+                try {
+                    console.log(`[${sessionId}] Requesting pairing code after WhatsApp handshake...`);
+                    const code = await sock.requestPairingCode(normalizedPhone);
+                    console.log(`[${sessionId}] ✅ Pairing Code Generated: ${code}`);
+                    notify("pairing_code", { code, sessionId });
+                } catch (error) {
+                    pairingCodeRequested = false;
+                    console.error(`[${sessionId}] ❌ Pairing code request failed:`, error.message);
+                    notify("pairing_error", {
+                        error: "WhatsApp rejected the pairing request (405). Please wait a few seconds and try again with the full country-code number.",
+                        sessionId,
+                        statusCode: error.output?.statusCode
+                    });
+                }
+            };
 
             const safeSaveCreds = async () => {
                 try {
@@ -124,6 +103,12 @@ export const startPairing = async (phoneNumber, method = "qr", socketId, hooks =
                 if (qr && method === "qr") {
                     console.log(`[${sessionId}] QR Generated`);
                     notify("qr_update", { qr, sessionId });
+                }
+
+                // In pairing-code mode Baileys emits qr as the readiness signal.
+                // Calling requestPairingCode before this event can trigger 405.
+                if (qr && method === "code") {
+                    await requestPairingCode();
                 }
 
                 if (connection === "open") {
@@ -170,7 +155,7 @@ export const startPairing = async (phoneNumber, method = "qr", socketId, hooks =
 
                     console.warn(`[${sessionId}] Connection closed: ${code} - ${reason}`);
 
-                    if (code === 515 && pairRetries < maxPairRetries) {
+                    if ((code === 515 || code === 405) && pairRetries < maxPairRetries) {
                         pairRetries++;
                         console.log(`[${sessionId}] 🔄 Socket Stream Error (515), auto-restarting...`);
                         await delay(3000);
