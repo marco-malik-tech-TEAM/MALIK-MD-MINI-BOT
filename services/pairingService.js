@@ -27,7 +27,11 @@ export const startPairing = async (phoneNumber, method = "qr", socketId, hooks =
         emitUpdateToSocket(socketId, event, data);
         try { hooks.onEvent?.(event, data); } catch { /* ignore */ }
     };
-    console.log(`🔌 Requesting pairing for ${phoneNumber} (${method}) via socketId: ${socketId}`);
+    const normalizedPhone = String(phoneNumber || "").replace(/\D/g, "");
+    if (method === "code" && (!normalizedPhone || normalizedPhone.length < 8 || normalizedPhone.length > 15)) {
+        throw new Error("Enter a valid WhatsApp number with country code for pairing code.");
+    }
+    console.log(`🔌 Requesting pairing for ${normalizedPhone || "QR"} (${method}) via socketId: ${socketId}`);
 
     try {
         const sessionId = generateSessionId();
@@ -59,7 +63,7 @@ export const startPairing = async (phoneNumber, method = "qr", socketId, hooks =
             });
 
             // Store session ref
-            activePairingSessions.set(sessionId, { sock, socketId, phone: phoneNumber });
+            activePairingSessions.set(sessionId, { sock, socketId, phone: normalizedPhone });
 
             // Handle Pairing Code
             if (method === "code" && phoneNumber) {
@@ -76,9 +80,10 @@ export const startPairing = async (phoneNumber, method = "qr", socketId, hooks =
                                 const waitTime = attempts === 1 ? 6000 : 3000;
                                 await delay(waitTime);
 
-                                if (!sock.authState.creds.me && !sock.authState.creds.registered) {
+                                // Auth state is returned by useMultiFileAuthState; it is not exposed as sock.authState.
+                                if (!state.creds.me && !state.creds.registered) {
                                     console.log(`[${sessionId}] Requesting pairing code (Attempt ${attempts})...`);
-                                    const code = await sock.requestPairingCode(phoneNumber.replace(/\D/g, ""));
+                                    const code = await sock.requestPairingCode(normalizedPhone);
                                     console.log(`[${sessionId}] ✅ Pairing Code Generated: ${code}`);
                                     notify("pairing_code", { code, sessionId });
                                     success = true;

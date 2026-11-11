@@ -719,24 +719,24 @@
 
             const cleaned = rawPhone.replace(/\D/g, ''); // Normalize: remove spaces etc
 
-            if (!cleaned || cleaned.length < 11) {
-                showError("INCOMPLETE NUMBER. ENTER FULL MODULE ID (e.g. 255712345678)");
-                return;
+            if (currentMethod === 'code') {
+                if (!cleaned || cleaned.length < 8 || cleaned.length > 15) {
+                    showError("ENTER A VALID NUMBER WITH COUNTRY CODE (e.g. 923001234567)");
+                    return;
+                }
+
+                if (cleaned.startsWith('0')) {
+                    showError("DO NOT START WITH 0. INCLUDE COUNTRY CODE (e.g. 923...)");
+                    return;
+                }
+
+                if (/^\d{1,3}07/.test(cleaned)) {
+                    showError("DO NOT INCLUDE 0 AFTER COUNTRY CODE (e.g. use 92300... not 923070...)");
+                    return;
+                }
             }
 
-            if (cleaned.startsWith('0')) {
-                showError("DO NOT START WITH 0. INCLUDE COUNTRY CODE (e.g. 255...)");
-                return;
-            }
-
-            // Detect 0 after country code (e.g. 25507...)
-            // Common country codes are 1-3 digits. We look for CC followed by 07.
-            if (/^\d{1,3}07/.test(cleaned)) {
-                showError("DO NOT INCLUDE 0 AFTER COUNTRY CODE (e.g. use 2557... not 25507...)");
-                return;
-            }
-
-            const phone = cleaned; // Use cleaned number for API
+            const phone = cleaned || null; // QR mode does not require a phone number
 
             btn.disabled = true;
             document.getElementById('btn-text').innerText = 'INITIALIZING...';
